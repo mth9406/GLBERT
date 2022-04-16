@@ -13,7 +13,7 @@ import torch
 from torch import nn
 from torch.nn import Module, Parameter
 import torch.nn.functional as F
-
+from layers import * 
 
 class GNN(Module):
     def __init__(self, hidden_size, step=1):
@@ -93,6 +93,69 @@ class SessionGraph(Module):
         hidden = self.gnn(A, hidden)
         return hidden
 
+
+class GLBert4Rec(nn.Module):
+
+    def __init__(self, opt, n_items, N, 
+                hidden_dim:int = 512, 
+                num_head:int = 8, 
+                inner_dim:int = 2048, 
+                max_length:int = 100):
+        super().__init__()
+        self.n_items = n_items # the number of items
+        self.N = N # the number of layers to be repeated..
+        self.hidden_dim = hidden_dim
+        self.num_head = num_head
+        self.inner_dim = inner_dim
+        self.max_length = max_length
+        self.embedding = nn.Embedding(num_embeddings= n_items, embedding_dim= hidden_dim, padding_idx= 0)
+        self.pos_embedding = nn.Embedding(max_length, hidden_dim)
+        self.graph_in_conv_layers = nn.ModuleList(
+            [nn.Linear(hidden_dim, hidden_dim) for _ in range(N)]
+        )
+        self.graph_out_conv_layers = nn.ModuleList(
+            [nn.Linear(hidden_dim, hidden_dim) for _ in range(N)]
+        )
+        self.enc_layers = nn.ModuleList(
+            [EncoderLayer(2*hidden_dim, num_head, inner_dim) for _ in range(N)]
+        )
+        self.projection = nn.Sequential(
+            nn.Linear(2*hidden_dim, hidden_dim),
+            nn.Linear(hidden_dim, n_items)
+        )
+
+        self.dropout = nn.Dropout(0.1)
+
+        self.loss_function = nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=opt.lr, weight_decay=opt.l2)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=opt.lr_dc_step, gamma=opt.lr_dc)
+    
+
+    def forward(self, input, A):
+        device= input.device
+        bs, item_len = input.shape[:2] # 0, 1
+        mask = makeMask(input, option = 'padding').to(device)
+        pos = torch.arange(0, item_len).unsqueeze(0).repeat(bs, 1).to(device)
+        # (bs, item_len)
+        # [[0, 1, 2, ..., item_len-1],...,[0, 1, 2, ..., item_len-1]]
+
+        # Embedding layer
+        output = self.dropout(self.embedding(input) + self.pos_embedding(pos))
+        # (bs, item_len, hidden_dim)
+        # Encoder layers
+        for graph_in_conv_layer, graph_out_conv_layer, enc_layer in zip(self.graph_in_conv_layers, self.graph_out_conv_layers, self.enc_layers):
+            output_in = torch.matmul(A[:, :, :A.shape[1]], graph_in_conv_layer(output))
+            output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], graph_out_conv_layer(output))
+            output = torch.cat([output_in, output_out], 2)
+            output = enc_layer(output, mask)
+        # (bs, item_len, 2*hidden_dim)
+        # output = output[:, -1, :] # (bs, 2*hidden_dim)
+        # output = self.projection(output)
+        return output
+
+    def compute_scores(self, hidden, mask):
+        scores = self.projection(hidden) # bs, n_items
+        return scores
 
 def trans_to_cuda(variable):
     if torch.cuda.is_available():

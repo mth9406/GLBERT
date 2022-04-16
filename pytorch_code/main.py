@@ -26,6 +26,20 @@ parser.add_argument('--patience', type=int, default=10, help='the number of epoc
 parser.add_argument('--nonhybrid', action='store_true', help='only use the global preference to predict')
 parser.add_argument('--validation', action='store_true', help='validation')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
+
+parser.add_argument('--model_type', type= int, default=0,
+                    help= '0:SR-GNN, 1:GLBERT')
+# GLBERT config
+parser.add_argument('--hidden_dim', tyep= int, default= 512, 
+                    help= 'hidden_dim of GLBERT')
+parser.add_argument('--num_head', type= int, default= 8, 
+                    help= 'the number of heads')
+parser.add_argument('--inner_dim', type= int, default= 2048, 
+                    help= 'inner dim of GLBERT')
+parser.add_argument('--max_length', type= int, default= 100,
+                    help= 'max_length of an item list')
+parser.add_argument('--N', type= int, default= 2, 
+                    help= 'the number of layers')
 opt = parser.parse_args()
 print(opt)
 
@@ -49,8 +63,13 @@ def main():
     else:
         n_node = 310
 
-    model = trans_to_cuda(SessionGraph(opt, n_node))
-
+    if opt.model_type == 0:
+        model = trans_to_cuda(SessionGraph(opt, n_node))
+    elif opt.model_type == 1:
+        model = trans_to_cuda(GLBert4Rec(opt, n_node))
+    else:
+        raise Exception('Unknown Dataset!')
+        
     start = time.time()
     best_result = [0, 0]
     best_epoch = [0, 0]

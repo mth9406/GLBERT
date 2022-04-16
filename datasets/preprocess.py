@@ -23,7 +23,7 @@ dataset = 'sample_train-item-views.csv'
 if opt.dataset == 'diginetica':
     dataset = 'train-item-views.csv'
 elif opt.dataset =='yoochoose':
-    dataset = 'yoochoose-clicks.dat'
+    dataset = 'yoochoose-clicks-withHeader.dat'
 
 print("-- Starting @ %ss" % datetime.datetime.now())
 with open(dataset, "r") as f:
