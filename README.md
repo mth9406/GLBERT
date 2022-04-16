@@ -1,8 +1,6 @@
-# SR-GNN
+# SR-GNN & GLBERT
 
-## Paper data and code
-
-This is the code for the AAAI 2019 Paper: [Session-based Recommendation with Graph Neural Networks](https://arxiv.org/abs/1811.00855). We have implemented our methods in both **Tensorflow** and **Pytorch**.
+## Data
 
 Here are two datasets we used in our paper. After downloaded the datasets, you can put them in the folder `datasets/`:
 
@@ -11,8 +9,6 @@ Here are two datasets we used in our paper. After downloaded the datasets, you c
 - DIGINETICA: <http://cikm2016.cs.iupui.edu/cikm-cup> or <https://competitions.codalab.org/competitions/11161>
 
 There is a small dataset `sample` included in the folder `datasets/`, which can be used to test the correctness of the code.
-
-We have also written a [blog](https://sxkdz.github.io/research/SR-GNN) explaining the paper.
 
 ## Usage
 
@@ -28,7 +24,7 @@ optional arguments:
   --dataset DATASET  dataset name: diginetica/yoochoose/sample
 ```
 
-Then you can run the file `pytorch_code/main.py` or `tensorflow_code/main.py` to train the model.
+Then you can run the file `pytorch_code/main.py` to train the model.
 
 For example: `cd pytorch_code; python main.py --dataset=sample`
 
@@ -71,17 +67,8 @@ optional arguments:
 - Python 3
 - PyTorch 0.4.0 or Tensorflow 1.9.0
 
-## Other Implementation for Reference
-There are other implementation available for reference:
-- Implementation based on PaddlePaddle by Baidu [[Link]](https://github.com/PaddlePaddle/models/tree/develop/PaddleRec/gnn)
-- Implementation based on PyTorch Geometric [[Link]](https://github.com/RuihongQiu/SR-GNN_PyTorch-Geometric)
-- Another implementation based on Tensorflow [[Link]](https://github.com/jimanvlad/SR-GNN)
-- Yet another implementation based on Tensorflow [[Link]](https://github.com/loserChen/TensorFlow-In-Practice/tree/master/SRGNN)
-
 ## Citation
-
-Please cite our paper if you use the code:
-
+Refered to:
 ```
 @inproceedings{Wu:2019ke,
 title = {{Session-based Recommendation with Graph Neural Networks}},
