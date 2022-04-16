@@ -15,7 +15,6 @@ from model import *
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', default='sample', help='dataset name: diginetica/yoochoose1_4/yoochoose1_64/sample')
 parser.add_argument('--batchSize', type=int, default=100, help='input batch size')
-parser.add_argument('--hiddenSize', type=int, default=100, help='hidden state size')
 parser.add_argument('--epoch', type=int, default=30, help='the number of epochs to train for')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')  # [0.001, 0.0005, 0.0001]
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
@@ -23,12 +22,9 @@ parser.add_argument('--lr_dc_step', type=int, default=3, help='the number of ste
 parser.add_argument('--l2', type=float, default=1e-5, help='l2 penalty')  # [0.001, 0.0005, 0.0001, 0.00005, 0.00001]
 parser.add_argument('--step', type=int, default=1, help='gnn propogation steps')
 parser.add_argument('--patience', type=int, default=10, help='the number of epoch to wait before early stop ')
-parser.add_argument('--nonhybrid', action='store_true', help='only use the global preference to predict')
 parser.add_argument('--validation', action='store_true', help='validation')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
 
-parser.add_argument('--model_type', type= int, default=0,
-                    help= '0:SR-GNN, 1:GLBERT')
 # GLBERT config
 parser.add_argument('--hidden_dim', type= int, default= 512, 
                     help= 'hidden_dim of GLBERT')
@@ -43,6 +39,7 @@ parser.add_argument('--N', type= int, default= 2,
 opt = parser.parse_args()
 print(opt)
 
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 def main():
     train_data = pickle.load(open('../datasets/' + opt.dataset + '/train.txt', 'rb'))
@@ -63,12 +60,7 @@ def main():
     else:
         n_node = 310
 
-    if opt.model_type == 0:
-        model = trans_to_cuda(SessionGraph(opt, n_node))
-    elif opt.model_type == 1:
-        model = trans_to_cuda(GLBert4Rec(opt, n_node))
-    else:
-        raise Exception('Unknown Dataset!')
+    model = GLBert4Rec(opt, n_node).to(device)
 
     start = time.time()
     best_result = [0, 0]
@@ -77,7 +69,7 @@ def main():
     for epoch in range(opt.epoch):
         print('-------------------------------------------------------')
         print('epoch: ', epoch)
-        hit, mrr = train_test(model, train_data, test_data)
+        hit, mrr = train_test(model, train_data, test_data, device=device)
         flag = 0
         if hit >= best_result[0]:
             best_result[0] = hit
