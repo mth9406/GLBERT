@@ -9,6 +9,8 @@ Created on July, 2018
 import argparse
 import pickle
 import time
+
+from torch import device
 from utils import build_graph, Data, split_validation
 from model import *
 
@@ -27,8 +29,6 @@ parser.add_argument('--nonhybrid', action='store_true', help='only use the globa
 parser.add_argument('--validation', action='store_true', help='validation')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion of training set as validation set')
 
-parser.add_argument('--model_type', type= int, default=0,
-                    help= '0:SR-GNN, 1:GLBERT')
 # GLBERT config
 parser.add_argument('--hidden_dim', type= int, default= 512, 
                     help= 'hidden_dim of GLBERT')
@@ -43,6 +43,7 @@ parser.add_argument('--N', type= int, default= 2,
 opt = parser.parse_args()
 print(opt)
 
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 def main():
     train_data = pickle.load(open('../datasets/' + opt.dataset + '/train.txt', 'rb'))
@@ -63,12 +64,7 @@ def main():
     else:
         n_node = 310
 
-    if opt.model_type == 0:
-        model = trans_to_cuda(SessionGraph(opt, n_node))
-    elif opt.model_type == 1:
-        model = trans_to_cuda(GLBert4Rec(opt, n_node))
-    else:
-        raise Exception('Unknown Dataset!')
+    model = GLBert4Rec(opt, n_node).to(device)
 
     start = time.time()
     best_result = [0, 0]
@@ -77,7 +73,7 @@ def main():
     for epoch in range(opt.epoch):
         print('-------------------------------------------------------')
         print('epoch: ', epoch)
-        hit, mrr = train_test(model, train_data, test_data)
+        hit, mrr = train_test(model, train_data, test_data, device)
         flag = 0
         if hit >= best_result[0]:
             best_result[0] = hit

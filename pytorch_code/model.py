@@ -76,13 +76,6 @@ class GLBert4Rec(nn.Module):
     #     scores =  self.projection(hidden[:, -1, :])
     #     return scores
 
-def trans_to_cuda(variable):
-    if torch.cuda.is_available():
-        return variable.cuda()
-    else:
-        return variable
-
-
 def trans_to_cpu(variable):
     if torch.cuda.is_available():
         return variable.cpu()
@@ -90,18 +83,18 @@ def trans_to_cpu(variable):
         return variable
 
 
-def forward(model, i, data):
+def forward(model, i, data, device):
     alias_inputs, A, items, mask, targets = data.get_slice(i)
-    alias_inputs = trans_to_cuda(torch.Tensor(alias_inputs).long())
-    items = trans_to_cuda(torch.Tensor(items).long())
-    A = trans_to_cuda(torch.Tensor(A).float())
-    mask = trans_to_cuda(torch.Tensor(mask).long())
+    alias_inputs = (torch.Tensor(alias_inputs).long()).to(device)
+    items = (torch.Tensor(items).long()).to(device)
+    A = (torch.Tensor(A).float()).to(device)
+    mask = (torch.Tensor(mask).long()).to(device)
     hidden = model(items, A)
     # get = lambda i: hidden[i][alias_inputs[i]]
     # seq_hidden = torch.stack([get(i) for i in torch.arange(len(alias_inputs)).long()])
     return targets, hidden
 
-def train_test(model, train_data, test_data):
+def train_test(model, train_data, test_data, device):
     model.scheduler.step()
     print('start training: ', datetime.datetime.now())
     model.train()
@@ -109,9 +102,9 @@ def train_test(model, train_data, test_data):
     slices = train_data.generate_batch(model.batch_size)
     for i, j in zip(slices, np.arange(len(slices))):
         model.optimizer.zero_grad()
-        targets, scores = forward(model, i, train_data)
-        targets = trans_to_cuda(torch.Tensor(targets).long())
-        loss = model.loss_function(scores, targets)
+        targets, scores = forward(model, i, train_data, device)
+        targets = (torch.Tensor(targets).long()).to(device)
+        loss = model.loss_function(scores, targets - 1)
         loss.backward()
         model.optimizer.step()
         total_loss += loss
@@ -124,15 +117,15 @@ def train_test(model, train_data, test_data):
     hit, mrr = [], []
     slices = test_data.generate_batch(model.batch_size)
     for i in slices:
-        targets, scores = forward(model, i, test_data)
+        targets, scores = forward(model, i, test_data, device)
         sub_scores = scores.topk(20)[1]
         sub_scores = trans_to_cpu(sub_scores).detach().numpy()
         for score, target, mask in zip(sub_scores, targets, test_data.mask):
-            hit.append(np.isin(target, score))
-            if len(np.where(score == target)[0]) == 0:
+            hit.append(np.isin(target - 1, score))
+            if len(np.where(score == target - 1)[0]) == 0:
                 mrr.append(0)
             else:
-                mrr.append(1 / (np.where(score == target)[0][0] + 1))
+                mrr.append(1 / (np.where(score == target - 1)[0][0] + 1))
     hit = np.mean(hit) * 100
     mrr = np.mean(mrr) * 100
     return hit, mrr
