@@ -80,18 +80,18 @@ class MSA(nn.Module):
         V = rearrange(V, 'bs item_len (num_head head_dim) -> bs num_head item_len head_dim', 
                         num_head= self.num_head)
 
-        A = Q@K_T/math.sqrt(self.head_dim)
+        Att = Q@K_T/math.sqrt(self.head_dim)
         if mask is not None:
             '''
             mask.shape 
             if padding : (bs, 1, 1, item_len)
             elif lookahead: (bs, 1, item_len, item_len)
             '''
-            A = torch.masked_fill(A, (mask==0), -1e+4)
+            Att = torch.masked_fill(Att, (mask==0), -1e+4)
             # fill -e+4 for attention values of paddings
         
-        A = torch.softmax(A, dim = -1)
-        result = self.dropout(A)@V # (bs num_head, item_len, head_dim)
+        Att = torch.softmax(Att, dim = -1)
+        result = self.dropout(Att)@V # (bs num_head, item_len, head_dim)
         result = rearrange(result, 'bs num_head item_len head_dim ->  bs item_len (num_head head_dim)')
         # projection
         result = self.fc_out(result)

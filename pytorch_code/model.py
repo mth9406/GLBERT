@@ -96,39 +96,39 @@ class SessionGraph(Module):
 
 class GLBert4Rec(nn.Module):
 
-    def __init__(self, opt, n_items, N, 
-                hidden_dim:int = 512, 
-                num_head:int = 8, 
-                inner_dim:int = 2048, 
-                max_length:int = 100):
+    def __init__(self, opt, n_items):
         super().__init__()
         self.n_items = n_items # the number of items
-        self.N = N # the number of layers to be repeated..
-        self.hidden_dim = hidden_dim
-        self.num_head = num_head
-        self.inner_dim = inner_dim
-        self.max_length = max_length
-        self.embedding = nn.Embedding(num_embeddings= n_items, embedding_dim= hidden_dim, padding_idx= 0)
-        self.pos_embedding = nn.Embedding(max_length, hidden_dim)
+        self.N = opt.N # the number of layers to be repeated..
+        self.hidden_dim = opt.hidden_dim
+        self.num_head = opt.num_head
+        self.inner_dim = opt.inner_dim
+        self.max_length = opt.max_length
+        self.embedding = nn.Embedding(num_embeddings= n_items, embedding_dim= opt.hidden_dim, padding_idx= 0)
+        self.pos_embedding = nn.Embedding(opt.max_length, opt.hidden_dim)
         self.graph_in_conv_layers = nn.ModuleList(
-            [nn.Linear(hidden_dim, hidden_dim) for _ in range(N)]
+            [nn.Linear(opt.hidden_dim, opt.hidden_dim) for _ in range(opt.N)]
         )
         self.graph_out_conv_layers = nn.ModuleList(
-            [nn.Linear(hidden_dim, hidden_dim) for _ in range(N)]
+            [nn.Linear(opt.hidden_dim, opt.hidden_dim) for _ in range(opt.N)]
+        )
+        self.graph_in_out_mix_conv_layers = nn.ModuleList(
+            [nn.Linear(2*opt.hidden_dim, opt.hidden_dim) for _ in range(opt.N)]
         )
         self.enc_layers = nn.ModuleList(
-            [EncoderLayer(2*hidden_dim, num_head, inner_dim) for _ in range(N)]
+            [EncoderLayer(opt.hidden_dim, opt.num_head, opt.inner_dim) for _ in range(opt.N)]
         )
-        self.projection = nn.Sequential(
-            nn.Linear(2*hidden_dim, hidden_dim),
-            nn.Linear(hidden_dim, n_items)
-        )
-
+        self.linear_one = nn.Linear(self.hidden_dim, self.hidden_dim, bias=True)
+        self.linear_two = nn.Linear(self.hidden_dim, self.hidden_dim, bias=True)
+        self.linear_three = nn.Linear(self.hidden_dim, 1, bias=False)
+        self.linear_transform = nn.Linear(self.hidden_dim * 2, self.hidden_dim, bias=True)
+        self.nonhybrid = opt.nonhybrid
         self.dropout = nn.Dropout(0.1)
 
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.parameters(), lr=opt.lr, weight_decay=opt.l2)
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=opt.lr_dc_step, gamma=opt.lr_dc)
+        self.batch_size = opt.batchSize
     
 
     def forward(self, input, A):
@@ -143,18 +143,27 @@ class GLBert4Rec(nn.Module):
         output = self.dropout(self.embedding(input) + self.pos_embedding(pos))
         # (bs, item_len, hidden_dim)
         # Encoder layers
-        for graph_in_conv_layer, graph_out_conv_layer, enc_layer in zip(self.graph_in_conv_layers, self.graph_out_conv_layers, self.enc_layers):
+        for graph_in_conv_layer, graph_out_conv_layer, graph_in_out_mix_conv_layer, enc_layer \
+            in zip(self.graph_in_conv_layers, self.graph_out_conv_layers, self.graph_in_out_mix_conv_layers, self.enc_layers):
             output_in = torch.matmul(A[:, :, :A.shape[1]], graph_in_conv_layer(output))
             output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], graph_out_conv_layer(output))
-            output = torch.cat([output_in, output_out], 2)
+            output = graph_in_out_mix_conv_layer(torch.cat([output_in, output_out], 2))
             output = enc_layer(output, mask)
         # (bs, item_len, 2*hidden_dim)
-        # output = output[:, -1, :] # (bs, 2*hidden_dim)
+        # output = output[:, -1, :] # (bs, hidden_dim)
         # output = self.projection(output)
         return output
 
     def compute_scores(self, hidden, mask):
-        scores = self.projection(hidden) # bs, n_items
+        ht = hidden[torch.arange(mask.shape[0]).long(), torch.sum(mask, 1) - 1]  # batch_size x latent_size
+        q1 = self.linear_one(ht).view(ht.shape[0], 1, ht.shape[1])  # batch_size x 1 x latent_size
+        q2 = self.linear_two(hidden)  # batch_size x seq_length x latent_size
+        alpha = self.linear_three(torch.sigmoid(q1 + q2))
+        a = torch.sum(alpha * hidden * mask.view(mask.shape[0], -1, 1).float(), 1)
+        if not self.nonhybrid:
+            a = self.linear_transform(torch.cat([a, ht], 1))
+        b = self.embedding.weight[1:]  # n_nodes x latent_size
+        scores = torch.matmul(a, b.transpose(1, 0))
         return scores
 
 def trans_to_cuda(variable):

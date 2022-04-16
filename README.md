@@ -38,6 +38,9 @@ usage: main.py [-h] [--dataset DATASET] [--batchSize BATCHSIZE]
                [--lr_dc LR_DC] [--lr_dc_step LR_DC_STEP] [--l2 L2]
                [--step STEP] [--patience PATIENCE] [--nonhybrid]
                [--validation] [--valid_portion VALID_PORTION]
+               [--model_type MODEL_TYPE] [--hidden_dim HIDDEN_DIM]
+               [--num_head NUM_HEAD] [--inner_dim INNER_DIM]
+               [--max_length MAX_LENGTH] [--N N]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -51,7 +54,7 @@ optional arguments:
   --lr LR               learning rate
   --lr_dc LR_DC         learning rate decay rate
   --lr_dc_step LR_DC_STEP
-                        the number of epochs after which the learning rate
+                        the number of steps after which the learning rate
                         decay
   --l2 L2               l2 penalty
   --step STEP           gnn propogation steps
@@ -60,6 +63,16 @@ optional arguments:
   --validation          validation
   --valid_portion VALID_PORTION
                         split the portion of training set as validation set
+  --model_type MODEL_TYPE
+                        0:SR-GNN, 1:GLBERT
+  --hidden_dim HIDDEN_DIM
+                        hidden_dim of GLBERT
+  --num_head NUM_HEAD   the number of heads
+  --inner_dim INNER_DIM
+                        inner dim of GLBERT
+  --max_length MAX_LENGTH
+                        max_length of an item list
+  --N N                 the number of layers
 ```
 
 ## Requirements

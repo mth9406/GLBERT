@@ -30,7 +30,7 @@ parser.add_argument('--valid_portion', type=float, default=0.1, help='split the 
 parser.add_argument('--model_type', type= int, default=0,
                     help= '0:SR-GNN, 1:GLBERT')
 # GLBERT config
-parser.add_argument('--hidden_dim', tyep= int, default= 512, 
+parser.add_argument('--hidden_dim', type= int, default= 512, 
                     help= 'hidden_dim of GLBERT')
 parser.add_argument('--num_head', type= int, default= 8, 
                     help= 'the number of heads')
@@ -69,7 +69,7 @@ def main():
         model = trans_to_cuda(GLBert4Rec(opt, n_node))
     else:
         raise Exception('Unknown Dataset!')
-        
+
     start = time.time()
     best_result = [0, 0]
     best_epoch = [0, 0]
