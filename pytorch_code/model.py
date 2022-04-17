@@ -37,10 +37,11 @@ class GLBert4Rec(nn.Module):
         self.enc_layers = nn.ModuleList(
             [EncoderLayer(opt.hidden_dim, opt.num_head, opt.inner_dim) for _ in range(opt.N)]
         )
-        self.projection = nn.Sequential(
-            nn.Linear(opt.hidden_dim, opt.hidden_dim),
-            nn.Linear(opt.hidden_dim, n_items)
-        )
+        self.projection_att = nn.Linear(opt.hidden_dim, 1)
+        # to obtain a global attention
+
+        self.projection_sess = nn.Linear(2*opt.hidden_dim, opt.hidden_dim)
+        # to obtain a session representation
         self.dropout = nn.Dropout(0.1)
 
         self.loss_function = nn.CrossEntropyLoss()
@@ -48,7 +49,6 @@ class GLBert4Rec(nn.Module):
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=opt.lr_dc_step, gamma=opt.lr_dc)
         self.batch_size = opt.batchSize
     
-
     def forward(self, input, A):
         device= input.device
         bs, item_len = input.shape[:2] # 0, 1
@@ -59,29 +59,47 @@ class GLBert4Rec(nn.Module):
 
         # Embedding layer
         output = self.dropout(self.embedding(input) + self.pos_embedding(pos))
-        # (bs, item_len, hidden_dim)
+
         # Encoder layers
         for graph_in_conv_layer, graph_out_conv_layer, graph_in_out_mix_conv_layer, enc_layer \
             in zip(self.graph_in_conv_layers, self.graph_out_conv_layers, self.graph_in_out_mix_conv_layers, self.enc_layers):
             output_in = torch.matmul(A[:, :, :A.shape[1]], graph_in_conv_layer(output))
             output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], graph_out_conv_layer(output))
             output = graph_in_out_mix_conv_layer(torch.cat([output_in, output_out], 2))
-            output = enc_layer(output, mask)
-        # (bs, item_len, hidden_dim)
-        output = output[:, -1, :] # (bs, hidden_dim)
-        output = self.projection(output)
-        return output
+            # (bs, item_len, hidden_dim)
+        output_local = output[:, -1, :] 
+        # (bs, hidden_dim)
+        # to represent user's current interest
 
+        att = self.projection_att(output)
+        att = att / att.sum(dim= 1, keepdim= True)
+        # (bs, item_len, 1)
+        output = output.permute(0,2,1)
+        # (bs, hidden_dim, item_len)
+        output = (output @ att).squeeze() 
+        # (bs, hidden_dim)
+
+        # output_global
+        output = torch.cat([output_local, output], dim= 1)  
+        del output_local
+        # (bs, 2*hidden_dim)      
+
+        output = self.projection_sess(output)
+        # seesion embedding
+        # (bs, hidden_dim)
+        output = output.unsqueeze(1)
+        # (bs, 1, hidden_dim)
+        # obtain scores
+        output = output@(self.embedding.weight[1:].T)
+        # (bs, 1, hidden_dim) @ (hidden_dim, n_items)
+        # (bs, 1, V)
+        output = output.squeeze()
+        # (bs, n_items)
+
+        return output
     # def compute_scores(self, hidden, mask):
     #     scores =  self.projection(hidden[:, -1, :])
     #     return scores
-
-def trans_to_cuda(variable):
-    if torch.cuda.is_available():
-        return variable.cuda()
-    else:
-        return variable
-
 
 def trans_to_cpu(variable):
     if torch.cuda.is_available():
@@ -110,8 +128,8 @@ def train_test(model, train_data, test_data, device):
     for i, j in zip(slices, np.arange(len(slices))):
         model.optimizer.zero_grad()
         targets, scores = forward(model, i, train_data, device)
-        targets = trans_to_cuda(torch.Tensor(targets).long())
-        loss = model.loss_function(scores, targets)
+        targets = (torch.Tensor(targets).long()).to(device)
+        loss = model.loss_function(scores, targets - 1)
         loss.backward()
         model.optimizer.step()
         total_loss += loss
@@ -128,11 +146,11 @@ def train_test(model, train_data, test_data, device):
         sub_scores = scores.topk(20)[1]
         sub_scores = trans_to_cpu(sub_scores).detach().numpy()
         for score, target, mask in zip(sub_scores, targets, test_data.mask):
-            hit.append(np.isin(target, score))
-            if len(np.where(score == target)[0]) == 0:
+            hit.append(np.isin(target - 1, score))
+            if len(np.where(score == target - 1)[0]) == 0:
                 mrr.append(0)
             else:
-                mrr.append(1 / (np.where(score == target)[0][0] + 1))
+                mrr.append(1 / (np.where(score == target - 1)[0][0] + 1))
     hit = np.mean(hit) * 100
     mrr = np.mean(mrr) * 100
     return hit, mrr
