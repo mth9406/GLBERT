@@ -71,11 +71,7 @@ def main():
     for epoch in range(opt.epoch):
         print('-------------------------------------------------------')
         print('epoch: ', epoch)
-<<<<<<< HEAD
         hit, mrr = train_test(model, train_data, test_data, device=device)
-=======
-        hit, mrr = train_test(model, train_data, test_data, device)
->>>>>>> dd4c46d79bcc76b0764d4fd2e958168e62cfa10e
         flag = 0
         if hit >= best_result[0]:
             best_result[0] = hit
