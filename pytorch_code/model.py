@@ -129,7 +129,6 @@ def forward(model, i, data, device):
     return targets, hidden
 
 def train_test(model, train_data, test_data, device):
-    model.scheduler.step()
     print('start training: ', datetime.datetime.now())
     model.train()
     total_loss = 0.0
@@ -144,6 +143,7 @@ def train_test(model, train_data, test_data, device):
         total_loss += loss
         if j % int(len(slices) / 5 + 1) == 0:
             print('[%d/%d] Loss: %.4f' % (j, len(slices), loss.item()))
+    model.scheduler.step()
     print('\tLoss:\t%.3f' % total_loss)
 
     print('start predicting: ', datetime.datetime.now())
