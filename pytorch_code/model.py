@@ -67,6 +67,7 @@ class GLBert4Rec(nn.Module):
             output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], graph_out_conv_layer(output))
             output = graph_in_out_mix_conv_layer(torch.cat([output_in, output_out], 2))
             # (bs, item_len, hidden_dim)
+            output = enc_layer(output)
         output_local = output[:, -1, :] 
         # (bs, hidden_dim)
         # to represent user's current interest
