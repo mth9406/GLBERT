@@ -25,22 +25,18 @@ class GLBert4Rec(nn.Module):
         self.max_length = opt.max_length
         self.embedding = nn.Embedding(num_embeddings= n_items, embedding_dim= opt.hidden_dim, padding_idx= 0)
         self.pos_embedding = nn.Embedding(opt.max_length, opt.hidden_dim)
-        # self.graph_in_conv_layers = nn.ModuleList(
-        #     [nn.Linear(opt.hidden_dim, opt.hidden_dim) for _ in range(opt.N)]
-        # )
-        # self.graph_out_conv_layers = nn.ModuleList(
-        #     [nn.Linear(opt.hidden_dim, opt.hidden_dim) for _ in range(opt.N)]
-        # )
-        self.graph_in_out_mix_conv_layers = nn.ModuleList(
-            [nn.Linear(2*opt.hidden_dim, opt.hidden_dim) for _ in range(opt.N)]
+        self.graph_in_conv_layers = nn.ModuleList(
+            [nn.Linear(opt.hidden_dim, opt.hidden_dim//2) for _ in range(opt.N)]
         )
+        self.graph_out_conv_layers = nn.ModuleList(
+            [nn.Linear(opt.hidden_dim, opt.hidden_dim//2) for _ in range(opt.N)]
+        )
+        # self.graph_in_out_mix_conv_layers = nn.ModuleList(
+        #     [nn.Linear(2*opt.hidden_dim, opt.hidden_dim) for _ in range(opt.N)]
+        # )
         self.enc_layers = nn.ModuleList(
             [EncoderLayer(opt.hidden_dim, opt.num_head, opt.inner_dim) for _ in range(opt.N)]
         )
-        self.projection_att = nn.Linear(opt.hidden_dim, 1)
-        # to obtain a global attention
-
-        self.projection_sess = nn.Linear(2*opt.hidden_dim, opt.hidden_dim)
         # to obtain a session representation
         self.dropout = nn.Dropout(0.1)
 
@@ -68,38 +64,16 @@ class GLBert4Rec(nn.Module):
         #     output = graph_in_out_mix_conv_layer(torch.cat([output_in, output_out], 2))
         #     # (bs, item_len, hidden_dim)
         #     output = enc_layer(output)
-<<<<<<< HEAD
-=======
-        # output_local = output[:, -1, :] 
->>>>>>> 615dbf39b800fda24ef48615d34d853aa0a2a4c1
-        for graph_in_out_mix_conv_layer, enc_layer \
-            in zip(self.graph_in_out_mix_conv_layers, self.enc_layers):
-            output_in = torch.matmul(A[:, :, :A.shape[1]], output)
-            output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], output)
-            output = graph_in_out_mix_conv_layer(torch.cat([output_in, output_out], 2))
+        for in_conv_layer, out_conv_layer, enc_layer \
+            in zip(self.graph_in_conv_layers, self.graph_out_conv_layers, self.enc_layers):
+            output_in = torch.matmul(A[:, :, :A.shape[1]], in_conv_layer(output))
+            output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], out_conv_layer(output))
+            output = torch.cat([output_in, output_out], 2)
             # (bs, item_len, hidden_dim)
             output = enc_layer(output)
-        output_local = output[:, -1, :] 
+        output = output[:, -1, :] 
         # (bs, hidden_dim)
         # to represent user's current interest
-
-        att = self.projection_att(output)
-        att = att / att.sum(dim= 1, keepdim= True)
-        # (bs, item_len, 1)
-        output = output.permute(0,2,1)
-        # (bs, hidden_dim, item_len)
-        output = (output @ att).squeeze() 
-        # (bs, hidden_dim)
-
-        # output_global
-        output = torch.cat([output_local, output], dim= 1)  
-        del output_local
-        # (bs, 2*hidden_dim)      
-
-        output = self.projection_sess(output)
-        # seesion embedding
-        # (bs, hidden_dim)
-        output = output.unsqueeze(1)
         # (bs, 1, hidden_dim)
         # obtain scores
         output = output@(self.embedding.weight[1:].T)
@@ -107,7 +81,6 @@ class GLBert4Rec(nn.Module):
         # (bs, 1, V)
         output = output.squeeze()
         # (bs, n_items)
-
         return output
     # def compute_scores(self, hidden, mask):
     #     scores =  self.projection(hidden[:, -1, :])
