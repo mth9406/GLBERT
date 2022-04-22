@@ -68,6 +68,10 @@ class GLBert4Rec(nn.Module):
         #     output = graph_in_out_mix_conv_layer(torch.cat([output_in, output_out], 2))
         #     # (bs, item_len, hidden_dim)
         #     output = enc_layer(output)
+<<<<<<< HEAD
+=======
+        # output_local = output[:, -1, :] 
+>>>>>>> 615dbf39b800fda24ef48615d34d853aa0a2a4c1
         for graph_in_out_mix_conv_layer, enc_layer \
             in zip(self.graph_in_out_mix_conv_layers, self.enc_layers):
             output_in = torch.matmul(A[:, :, :A.shape[1]], output)
