@@ -3,3 +3,6 @@ datasets/diginetica/
 datasets/yoochoose1_4/
 datasets/yoochoose1_64/
 datasets/sample/
+datasets/train-item-views.csv
+datasets/yoochoose-clicks.dat
+datasets/yoochoose-clicks-withHeader.dat

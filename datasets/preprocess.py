@@ -37,7 +37,7 @@ with open(dataset, "r") as f:
     curid = -1
     curdate = None
     for data in reader:
-        sessid = data['session_id']
+        sessid = data['sessionId']
         if curdate and not curid == sessid:
             date = ''
             if opt.dataset == 'yoochoose':
@@ -47,9 +47,9 @@ with open(dataset, "r") as f:
             sess_date[curid] = date
         curid = sessid
         if opt.dataset == 'yoochoose':
-            item = data['item_id']
+            item = data['itemId']
         else:
-            item = data['item_id'], int(data['timeframe'])
+            item = data['itemId'], int(data['timeframe'])
         curdate = ''
         if opt.dataset == 'yoochoose':
             curdate = data['timestamp']
@@ -120,8 +120,8 @@ tra_sess = filter(lambda x: x[1] < splitdate, dates)
 tes_sess = filter(lambda x: x[1] > splitdate, dates)
 
 # Sort sessions by date
-tra_sess = sorted(tra_sess, key=operator.itemgetter(1))     # [(session_id, timestamp), (), ]
-tes_sess = sorted(tes_sess, key=operator.itemgetter(1))     # [(session_id, timestamp), (), ]
+tra_sess = sorted(tra_sess, key=operator.itemgetter(1))     # [(sessionId, timestamp), (), ]
+tes_sess = sorted(tes_sess, key=operator.itemgetter(1))     # [(sessionId, timestamp), (), ]
 print(len(tra_sess))    # 186670    # 7966257
 print(len(tes_sess))    # 15979     # 15324
 print(tra_sess[:3])
