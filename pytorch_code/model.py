@@ -31,8 +31,8 @@ class GLBert4Rec(nn.Module):
         self.graph_out_conv_layers = nn.ModuleList(
             [nn.Linear(opt.hidden_dim, opt.hidden_dim//2) for _ in range(opt.N)]
         )
-        self.b_in = nn.ModuleList([nn.Parameter(torch.Tensor(opt.hidden_dim//2)) for _ in range(opt.N)])
-        self.b_out = nn.ModuleList([nn.Parameter(torch.Tensor(opt.hidden_dim//2)) for _ in range(opt.N)])
+        # self.b_in = nn.ModuleList([nn.Parameter(torch.Tensor(opt.hidden_dim//2)) for _ in range(opt.N)])
+        # self.b_out = nn.ModuleList([nn.Parameter(torch.Tensor(opt.hidden_dim//2)) for _ in range(opt.N)])
         # self.graph_in_out_mix_conv_layers = nn.ModuleList(
         #     [nn.Linear(2*opt.hidden_dim, opt.hidden_dim) for _ in range(opt.N)]
         # )
@@ -66,10 +66,10 @@ class GLBert4Rec(nn.Module):
         #     output = graph_in_out_mix_conv_layer(torch.cat([output_in, output_out], 2))
         #     # (bs, item_len, hidden_dim)
         #     output = enc_layer(output)
-        for in_conv_layer, out_conv_layer, enc_layer, b_in, b_out \
-            in zip(self.graph_in_conv_layers, self.graph_out_conv_layers, self.enc_layers, self.b_in, self.b_out):
-            output_in = torch.matmul(A[:, :, :A.shape[1]], in_conv_layer(output)) + b_in
-            output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], out_conv_layer(output)) + b_out
+        for in_conv_layer, out_conv_layer, enc_layer \
+            in zip(self.graph_in_conv_layers, self.graph_out_conv_layers, self.enc_layers):
+            output_in = torch.matmul(A[:, :, :A.shape[1]], in_conv_layer(output)) 
+            output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], out_conv_layer(output))
             output = torch.cat([output_in, output_out], 2)
             output = enc_layer(output, mask= mask)
         output = output[:, -1, :] 
