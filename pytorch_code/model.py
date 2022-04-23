@@ -26,15 +26,6 @@ class GLBert4Rec(nn.Module):
         self.embedding = nn.Embedding(num_embeddings= n_items, embedding_dim= opt.hidden_dim, padding_idx= 0)
         self.pos_embedding = nn.Embedding(opt.max_length, opt.hidden_dim)
         
-        # self.graph_in_conv_layers = nn.Linear(opt.hidden_dim, opt.hidden_dim//2)
-        self.b_in = nn.parameter(torch.FloatTensor(opt.hidden_dim//2))
-        # self.graph_out_conv_layers = nn.Linear(opt.hidden_dim, opt.hidden_dim//2)
-        self.b_out = nn.parameter(torch.FloatTensor(opt.hidden_dim//2))
-        # self.b_in = nn.ModuleList([nn.Parameter(torch.Tensor(opt.hidden_dim//2)) for _ in range(opt.N)])
-        # self.b_out = nn.ModuleList([nn.Parameter(torch.Tensor(opt.hidden_dim//2)) for _ in range(opt.N)])
-        # self.graph_in_out_mix_conv_layers = nn.ModuleList(
-        #     [nn.Linear(2*opt.hidden_dim, opt.hidden_dim) for _ in range(opt.N)]
-        # )
         self.enc_layers = nn.ModuleList(
             [EncoderLayer(opt.hidden_dim, opt.num_head, opt.inner_dim) for _ in range(opt.N)]
         )
@@ -57,19 +48,11 @@ class GLBert4Rec(nn.Module):
         # Embedding layer
         output = self.dropout(self.embedding(input) + self.pos_embedding(pos))
 
-        # Encoder layers
-        # for graph_in_conv_layer, graph_out_conv_layer, graph_in_out_mix_conv_layer, enc_layer \
-        #     in zip(self.graph_in_conv_layers, self.graph_out_conv_layers, self.graph_in_out_mix_conv_layers, self.enc_layers):
-        #     output_in = torch.matmul(A[:, :, :A.shape[1]], graph_in_conv_layer(output))
-        #     output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], graph_out_conv_layer(output))
-        #     output = graph_in_out_mix_conv_layer(torch.cat([output_in, output_out], 2))
-        #     # (bs, item_len, hidden_dim)
-        #     output = enc_layer(output)
         for enc_layer in self.enc_layers:
             output = enc_layer(output, mask= mask)
 
-        output_in = torch.matmul(A[:, :, :A.shape[1]], output) + self.b_in
-        output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], output) + self.b_out
+        output_in = torch.matmul(A[:, :, :A.shape[1]], output)
+        output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], output)
         output = torch.maen(output_in+output_out, dim= 1)
         # output = output[:, -1, :] 
         # (bs, hidden_dim)
