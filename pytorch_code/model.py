@@ -53,7 +53,7 @@ class GLBert4Rec(nn.Module):
 
         output_in = torch.matmul(A[:, :, :A.shape[1]], output)
         output_out = torch.matmul(A[:, :, A.shape[1]:2*A.shape[1]], output)
-        output = torch.maen(output_in+output_out, dim= 1)
+        output = torch.mean(output_in+output_out, dim= 1)
         # output = output[:, -1, :] 
         # (bs, hidden_dim)
         # to represent user's current interest
